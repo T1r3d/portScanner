@@ -1,14 +1,14 @@
 package main
 
 import (
-	"fmt"
-	"net"
-	"sync"
-	"github.com/sparrc/go-ping"
-	"time"
-	"strings"
-	"strconv"
 	"flag"
+	"fmt"
+	"github.com/sparrc/go-ping"
+	"net"
+	"strconv"
+	"strings"
+	"sync"
+	"time"
 )
 
 func pingDetect(ip string) bool {
@@ -21,7 +21,7 @@ func pingDetect(ip string) bool {
 	pinger.SetPrivileged(true)
 	go func() {
 		fmt.Println("Start ping test...")
-		pinger.Run()	
+		pinger.Run()
 		stats <- pinger.Statistics()
 	}()
 	select {
@@ -50,9 +50,9 @@ func tcpConnectDetect(ip, port string, wg *sync.WaitGroup) bool {
 
 func main() {
 	//command-line args parse
-	iptr := flag.String("ip", "127.0.0.1", "Target IP")	
+	iptr := flag.String("ip", "127.0.0.1", "Target IP")
 	portsptr := flag.String("ports", "80,443", "Target ports")
-	flag.Parse()	
+	flag.Parse()
 
 	//detect if the host alive
 	pingDetect(*iptr)
@@ -60,7 +60,7 @@ func main() {
 	var wg sync.WaitGroup
 
 	ports := strings.Split(*portsptr, ",")
-	
+
 	for _, ran := range ports {
 		port := strings.Split(ran, "-")
 		if len(port) == 1 {
@@ -78,5 +78,5 @@ func main() {
 
 	wg.Wait()
 	fmt.Println("[*] Scan Finished")
-	
+
 }
