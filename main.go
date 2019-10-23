@@ -7,6 +7,7 @@ import (
 	"github.com/sparrc/go-ping"
 	"time"
 	"strings"
+	"strconv"
 	"flag"
 )
 
@@ -35,6 +36,7 @@ func pingDetect(ip string) bool {
 
 func tcpConnectDetect(ip, port string, wg *sync.WaitGroup) bool {
 	target := strings.Join([]string{ip, port}, ":")
+	//fmt.Printf("Scanning %s\n", target)
 	_, err := net.Dial("tcp", target)
 	if err != nil {
 		wg.Done()
@@ -58,23 +60,23 @@ func main() {
 	var wg sync.WaitGroup
 
 	ports := strings.Split(*portsptr, ",")
-	for _, port := range ports {
-		wg.Add(1)
-		go tcpConnectDetect(*iptr, port, &wg)
+	
+	for _, ran := range ports {
+		port := strings.Split(ran, "-")
+		if len(port) == 1 {
+			wg.Add(1)
+			go tcpConnectDetect(*iptr, port[0], &wg)
+		} else {
+			start, _ := strconv.Atoi(port[0])
+			end, _ := strconv.Atoi(port[1])
+			for p := start; p <= end; p++ {
+				wg.Add(1)
+				go tcpConnectDetect(*iptr, strconv.Itoa(p), &wg)
+			}
+		}
 	}
 
 	wg.Wait()
-	/*
-	conn, err := net.Dial("tcp", "120.79.219.67:8000")
-	if err != nil {
-		fmt.Println("Error!")
-		fmt.Println(err)
-		fmt.Println("Error2!")
-		//panic(err)
-		os.Exit(2)
-	}
-	fmt.Fprintf(conn, "GET / HTTP/1.1\r\n\r\n")
-	status, err := bufio.NewReader(conn).ReadString('\n')
-	fmt.Println(status)
-	*/
+	fmt.Println("[*] Scan Finished")
+	
 }
