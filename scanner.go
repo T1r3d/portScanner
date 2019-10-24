@@ -26,11 +26,11 @@ func pingDetect(ip string) bool {
 		stats <- pinger.Statistics()
 	}()
 	select {
-	case state := <-stats:
-		fmt.Println(state)
+	case <-stats:
+		fmt.Println("[+] Target is alive.")
 		return true
 	case <-time.After(5 * time.Second):
-		fmt.Println("Ping Timeout: The target is not alive.")
+		fmt.Println("[-] Ping Timeout: The target is not alive.")
 		return false
 	}
 }
@@ -48,7 +48,7 @@ func tcpConnectDetect(ip, port string) bool {
 
 func scanner(id int, ip string, ports <-chan string, wg *sync.WaitGroup) {
 	for port := range ports {
-		fmt.Printf("[*] scanner-%d receive port %s\n", id, port)
+		//fmt.Printf("[*] scanner-%d receive port %s\n", id, port)
 		tcpConnectDetect(ip, port)			
 		wg.Done()
 	}
@@ -77,7 +77,7 @@ func main() {
 	//Detect if the host alive.
 	pingDetect(*iptr)
 	//Start concurrency tcp connect detect.
-	/*
+	/* ugly implemention 
 	var wg sync.WaitGroup
 	ports := strings.Split(*portsptr, ",")
 	for _, ran := range ports {
@@ -97,10 +97,11 @@ func main() {
 	*/
 	//Start concurrency tcp connect detect by workerpool.
 	var wg sync.WaitGroup
-	ports := make(chan string, 1000)
-	for i := 0; i < 1000; i++ {
+	ports := make(chan string, 5000)
+	for i := 0; i < 5000; i++ {
 		go scanner(i, *iptr, ports, &wg)
 	}	
+	start := time.Now()
 	portsList := strings.Split(*portsptr, ",")
 	for _, ran := range portsList {
 		port := strings.Split(ran, "-")
@@ -116,7 +117,11 @@ func main() {
 			}
 		}
 	}
+	close(ports)
 
 	wg.Wait()
+	end := time.Now()
+	fmt.Printf("[*] Time resuming: %v\n", end.Sub(start))
 	fmt.Println("[*] Scan Finished")
+	// TODO(t1r3d): more command args support(-v verbose, -c concurrency, -o outputfile)
 }
