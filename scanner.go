@@ -3,12 +3,13 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/sparrc/go-ping"
 	"net"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/sparrc/go-ping"
 )
 
 func pingDetect(ip string) bool {
@@ -20,7 +21,7 @@ func pingDetect(ip string) bool {
 	pinger.Count = 4
 	pinger.SetPrivileged(true)
 	go func() {
-		fmt.Println("Start ping test...")
+		fmt.Println("[*] Start ping test...")
 		pinger.Run()
 		stats <- pinger.Statistics()
 	}()
@@ -34,33 +35,36 @@ func pingDetect(ip string) bool {
 	}
 }
 
-func tcpConnectDetect(ip, port string, wg *sync.WaitGroup) bool {
+func tcpConnectDetect(ip, port string) bool {
 	target := strings.Join([]string{ip, port}, ":")
 	//fmt.Printf("Scanning %s\n", target)
 	_, err := net.Dial("tcp", target)
 	if err != nil {
-		wg.Done()
 		return false
 	}
 	fmt.Printf("[+] Port %s open\n", port)
-	wg.Done()
 	return true
+}
 
+func scanner(id int, ip string, ports <-chan string, wg *sync.WaitGroup) {
+	for port := range ports {
+		fmt.Printf("[*] scanner-%d receive port %s\n", id, port)
+		tcpConnectDetect(ip, port)			
+		wg.Done()
+	}
 }
 
 func main() {
-	//command-line args parse
+	//Command-line args parse.
 	iptr := flag.String("ip", "127.0.0.1", "Target IP")
 	portsptr := flag.String("ports", "80,443", "Target ports")
 	flag.Parse()
-
-	//detect if the host alive
+	//Detect if the host alive.
 	pingDetect(*iptr)
-
+	//Start concurrency tcp connect detect.
+	/*
 	var wg sync.WaitGroup
-
 	ports := strings.Split(*portsptr, ",")
-
 	for _, ran := range ports {
 		port := strings.Split(ran, "-")
 		if len(port) == 1 {
@@ -75,8 +79,29 @@ func main() {
 			}
 		}
 	}
+	*/
+	//Start concurrency tcp connect detect by workerpool.
+	var wg sync.WaitGroup
+	ports := make(chan string, 1000)
+	for i := 0; i < 1000; i++ {
+		go scanner(i, *iptr, ports, &wg)
+	}	
+	portsList := strings.Split(*portsptr, ",")
+	for _, ran := range portsList {
+		port := strings.Split(ran, "-")
+		if len(port) == 1 {
+			wg.Add(1)
+			ports <- port[0]
+		} else {
+			start, _ := strconv.Atoi(port[0])
+			end, _ := strconv.Atoi(port[1])
+			for p := start; p <= end; p++ {
+				wg.Add(1)
+				ports <- strconv.Itoa(p)
+			}
+		}
+	}
 
 	wg.Wait()
 	fmt.Println("[*] Scan Finished")
-
 }
